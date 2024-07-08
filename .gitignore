@@ -1,0 +1,10 @@
+# Ignore IDE dirs
+.vscode/
+.venv/
+
+# Ignore logs
+logs/
+
+# Ignore our specific cfg
+cfg.json
+
