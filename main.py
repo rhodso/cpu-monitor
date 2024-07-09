@@ -35,26 +35,29 @@ if(LOG_TO_FILE):
     logging.basicConfig(filename=os.path.join("logs", str(current_date + ".txt")), level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 else:
     logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
+l = logging.getLogger()
+
+# print(l.handlers)
 
 def panic(panic_msg):
-    logging.error("Failure occurred: %s", panic_msg)
-    logging.info("Sending panic message to alert webhook")
+    l.error("Failure occurred: %s", panic_msg)
+    l.info("Sending panic message to alert webhook")
     panic_url = CONFIG.get("panic_url")
-    logging.info("Sending panic message to Discord, URL: %s", panic_url)
+    l.info("Sending panic message to Discord, URL: %s", panic_url)
     data = {
         "content": "Failure occurred: \n" + str(panic_msg),
         "username": "webhook-alerts"
     }
-    logging.info("Panic message data: %s", data)
+    l.info("Panic message data: %s", data)
     res = requests.post(panic_url, json=data)
-    logging.info("Panic message sent")
+    l.info("Panic message sent")
 
     if(res.status_code != 204):
-        logging.error("Error sending panic message. Status Code: %s, Message: %s", res.status_code, res.text)
+        l.error("Error sending panic message. Status Code: %s, Message: %s", res.status_code, res.text)
     elif(res.status_code == 200):
-        logging.info("Panic message maybe sent successfully")
+        l.info("Panic message maybe sent successfully")
     elif(res.status_code == 204):
-        logging.info("Panic message sent successfully")
+        l.info("Panic message sent successfully")
     
     exit(0)
 
@@ -63,25 +66,25 @@ if(len(sys.argv) > 1):
     if(sys.argv[1] == "--test"):
         TEST = True
     else:
-        logging.error("Unknown argument: %s", sys.argv[1])
+        l.error("Unknown argument: %s", sys.argv[1])
 
 # Log startup, and if we're logging to a file
 if(TEST):
-    logging.info("Startup *Test mode*")
+    l.info("Startup *Test mode*")
 else:
-    logging.info("Startup...")
+    l.info("Startup...")
 
 if(LOG_TO_FILE):
-    logging.info("Logging to file")
+    l.info("Logging to file")
 else:
-    logging.info("Logging to console")
+    l.info("Logging to console")
 
 # Read config
-logging.info("Reading config")
+l.info("Reading config")
 
 # Check that the config file exists
 if not os.path.exists(CFG_PATH):
-    logging.error("Config file does not exist, creating a new one")
+    l.error("Config file does not exist, creating a new one")
     with open(CFG_PATH, "w") as f:
         f.write(json.dumps(default_config, indent=4))
 
@@ -91,29 +94,29 @@ with open(CFG_PATH, "r") as f:
 
 # If we're logging to a file, delete log files older than 30 days
 if(LOG_TO_FILE):
-    logging.info("Deleting log files older than 30 days")
+    l.info("Deleting log files older than 30 days")
     for file in os.listdir("logs"):
         file_path = os.path.join("logs", file)
         file_name = os.path.basename(file_path)
         if (datetime.datetime.now() - datetime.datetime.strptime(file_name, "%Y-%m-%d.txt")).days > CONFIG.get("log_file_retention_days", 30):
-            logging.info("Deleting old log file: %s", file_path)
+            l.info("Deleting old log file: %s", file_path)
             os.remove(file_path)
 
 # From https://shallowsky.com/blog/programming/cpu-hogs-in-python.html, 
 # we need to run the process twice, with a delay in between, to get accurate CPU usage
 # read the delay from the config, default to 5 seconds
 
-logging.info("First CPU usage check")
+l.info("First CPU usage check")
 for proc in psutil.process_iter():
     proc.cpu_percent(None)
 
 # Get the delay from the config, default to 5 seconds
 delay = CONFIG.get("delay_secs", 5)
-logging.info("Sleeping for %s seconds", delay)
+l.info("Sleeping for %s seconds", delay)
 time.sleep(delay)
 
 # Get a list of all processes, for realsies this time
-logging.info("Getting processes")
+l.info("Getting processes")
 processes = []
 
 for process in psutil.process_iter():
@@ -130,7 +133,7 @@ for process in psutil.process_iter():
     except psutil.NoSuchProcess:
         pass
 
-logging.info("Got " + str(len(processes)) + " processes")
+l.info("Got " + str(len(processes)) + " processes")
 
 # Filter this to only include processes that are using lots of CPU
 threshold = CONFIG.get("cpu_threshold", 80.0)
@@ -139,17 +142,17 @@ for proc in processes:
     if proc.get('cpu_percent') > threshold:
         heavy_processes.append(proc)
 
-logging.info("Found " + str(len(heavy_processes)) + " heavy processes")
+l.info("Found " + str(len(heavy_processes)) + " heavy processes")
 
 # If there are no heavy processes, we don't need to do anything
 if len(heavy_processes) == 0:
-    logging.info("No heavy processes found, exiting...")
+    l.info("No heavy processes found, exiting...")
     exit()
 
-logging.warning("Heavy processes found!")
+l.warning("Heavy processes found!")
 
 # Heavy processes found, send a notification
-logging.info("Sending notification")
+l.info("Sending notification")
 
 # Create the message
 """
@@ -167,7 +170,7 @@ username: [Username]
 
 message = "Heavy processes found!\n\n"
 
-logging.warning("List of heavy processes:")
+l.warning("List of heavy processes:")
 for proc in heavy_processes:
     message += "# " + proc.get('name') + "\n"
     message += "*CPU Usage: " + str(proc.get('cpu_percent')) + "*%\n"
@@ -178,10 +181,10 @@ for proc in heavy_processes:
     message += "username: " + str(proc.get('username')) + "\n\n"
 
     # Also log the process, but just dump the dictionary
-    logging.warning(proc)
+    l.warning(proc)
 
 # Send the message
-logging.info("Sending message to Discord")
+l.info("Sending message to Discord")
 
 # Read the webhook URL and username from the config
 webhook_url = CONFIG.get("webhook_url")
@@ -189,32 +192,32 @@ webhook_username = CONFIG.get("webhook_name")
 
 # Create the data to send
 data = {
-    "content": message,
-    "username": webhook_username
+    "username": webhook_username,
+    "content": message
 }
 
 # Send the message
-logging.info("Sending message to Discord, URL: %s", webhook_url)
+l.info("Preparing to send message with data: %s and webhook URL: %s", data, webhook_url)
 if(TEST):
-    logging.info("Test mode, not sending message")
+    l.info("Test mode, not sending message")
     res = requests.Response()
     res.status_code = 204
 else:
-    logging.info("Sending message...")
+    l.info("Sending message...")
     res = requests.post(webhook_url, json=data)
-logging.info("Message sent")
+l.info("Message sent")
 
 if(res.status_code != 204):
     # Log the error and send a panic message. Hopefully the panic message will be sent successfully
-    logging.error("Error sending message. Status Code: %s, Message: %s", res.status_code, res.text)
+    l.error("Error sending message. Status Code: %s, Message: %s", res.status_code, res.text)
     panic("Error sending message. Status Code: " + str(res.status_code) + ", Message: " + str(res.text))
 elif(res.status_code == 200):
-    logging.info("Message maybe sent successfully")
+    l.info("Message maybe sent successfully")
 elif(res.status_code == 204):
-    logging.info("Message sent successfully")
+    l.info("Message sent successfully")
 
 # Log shutdown
-logging.info("Shutdown")
+l.info("Shutdown")
 
 # Get the current date, get the log file name, and print a newline to the log file, to separate logs
 current_date = datetime.datetime.now().strftime("%Y-%m-%d")
