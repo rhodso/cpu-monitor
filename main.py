@@ -44,19 +44,19 @@ def panic(panic_msg):
     l.info("Sending panic message to alert webhook")
     panic_url = CONFIG.get("panic_url")
     l.info("Sending panic message to Discord, URL: %s", panic_url)
-    data = {
+    panic_data = {
         "content": "Failure occurred: \n" + str(panic_msg),
         "username": "webhook-alerts"
     }
-    l.info("Panic message data: %s", data)
-    res = requests.post(panic_url, json=data)
+    l.info("Panic message data: %s", panic_data)
+    panic_res = requests.post(panic_url, json=panic_data,timeout=100)
     l.info("Panic message sent")
 
-    if(res.status_code != 204):
-        l.error("Error sending panic message. Status Code: %s, Message: %s", res.status_code, res.text)
-    elif(res.status_code == 200):
+    if(panic_res.status_code != 204):
+        l.error("Error sending panic message. Status Code: %s, Message: %s", panic_res.status_code, panic_res.text)
+    elif(panic_res.status_code == 200):
         l.info("Panic message maybe sent successfully")
-    elif(res.status_code == 204):
+    elif(panic_res.status_code == 204):
         l.info("Panic message sent successfully")
     
     exit(0)
@@ -85,11 +85,11 @@ l.info("Reading config")
 # Check that the config file exists
 if not os.path.exists(CFG_PATH):
     l.error("Config file does not exist, creating a new one")
-    with open(CFG_PATH, "w") as f:
+    with open(CFG_PATH, "w",encoding="UTF-8") as f:
         f.write(json.dumps(default_config, indent=4))
 
 # Read the config file
-with open(CFG_PATH, "r") as f:
+with open(CFG_PATH, "r",encoding="UTF-8") as f:
     CONFIG = json.load(f)
 
 # If we're logging to a file, delete log files older than 30 days
@@ -133,7 +133,7 @@ for process in psutil.process_iter():
     except psutil.NoSuchProcess:
         pass
 
-l.info("Got " + str(len(processes)) + " processes")
+l.info("Got %s processes", len(processes))
 
 # Filter this to only include processes that are using lots of CPU
 threshold = CONFIG.get("cpu_threshold", 80.0)
@@ -142,7 +142,7 @@ for proc in processes:
     if proc.get('cpu_percent') > threshold:
         heavy_processes.append(proc)
 
-l.info("Found " + str(len(heavy_processes)) + " heavy processes")
+l.info("Found %s heavy processes", len(heavy_processes))
 
 # If there are no heavy processes, we don't need to do anything
 if len(heavy_processes) == 0:
@@ -155,18 +155,19 @@ l.warning("Heavy processes found!")
 l.info("Sending notification")
 
 # Create the message
-"""
-# Message format:
-Heavy processes found!
 
-#[Process Name]
-exe: [Executable]
-*CPU Usage: [CPU Usage]*%
-Memory Usage: [Memory Usage]
-pid: [PID]
-status: [Status]
-username: [Username]
-"""
+#   # Message format:
+#   Heavy processes found!
+#   
+#   #[Process Name]
+#   exe: [Executable]
+#   *CPU Usage: [CPU Usage]*%
+#   Memory Usage: [Memory Usage]
+#   pid: [PID]
+#   status: [Status]
+#   username: [Username]
+#   
+#   (This part then loops for each heavy process)
 
 message = "Heavy processes found!\n\n"
 
@@ -204,7 +205,7 @@ if(TEST):
     res.status_code = 204
 else:
     l.info("Sending message...")
-    res = requests.post(webhook_url, json=data)
+    res = requests.post(webhook_url, json=data,timeout=100)
 l.info("Message sent")
 
 if(res.status_code != 204):
@@ -221,5 +222,6 @@ l.info("Shutdown")
 
 # Get the current date, get the log file name, and print a newline to the log file, to separate logs
 current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-with open(os.path.join("logs", str(current_date + ".txt")), "a") as f:
+with open(os.path.join("logs", str(current_date + ".txt")), "a",encoding="UTF-8") as f:
     f.write("\n")
+
